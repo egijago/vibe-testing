@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSONL Log Player</title>
+    <style>
+        :root {
+            --primary-bg: #f4f4f9;
+            --card-bg: #ffffff;
+            --text-color: #333;
+            --border-color: #e0e0e0;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --code-bg: #2d2d2d;
+            --code-color: #f1f1f1;
+            --info-bg: #f9f9f9;
+            --chart-line-color: #007bff;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: var(--primary-bg);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            padding: 25px;
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+        }
+
+        /* --- File Uploader --- */
+        #uploader {
+            padding: 40px;
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+        }
+        #fileInput {
+            margin-top: 15px;
+        }
+        #status {
+            color: #666;
+            margin-top: 10px;
+        }
+
+        /* --- Log Viewer --- */
+        #viewer {
+            display: none; /* Hidden by default */
+            text-align: left;
+        }
+
+        #navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        #navigation button {
+            background-color: var(--chart-line-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.2s;
+        }
+
+        #navigation button:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+
+        #navigation button:disabled {
+            background-color: #c0c0c0;
+            cursor: not-allowed;
+        }
+        
+        #stepInfo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #stepCounter {
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        #nodeNameDisplay {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 4px;
+            font-family: "Courier New", Courier, monospace;
+        }
+        
+        #metadata, #stateDetails {
+            background-color: var(--info-bg);
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        .section-heading {
+            margin-top: 25px;
+            margin-bottom: 10px;
+            font-size: 1.4em;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .state-item {
+            margin-bottom: 10px;
+        }
+        .state-item strong {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .state-item code, .state-item em {
+            font-size: 1.1em;
+        }
+        .state-item ol {
+            margin: 0;
+            padding-left: 20px;
+            background-color: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 10px 10px 10px 30px;
+        }
+        .state-item li {
+            margin-bottom: 5px;
+        }
+        
+        #reportsChart {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        /* --- Message Styling --- */
+        .message {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .message:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .role {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid;
+        }
+        .role-system { color: #6a0dad; border-color: #6a0dad; }
+        .role-human { color: #007bff; border-color: #007bff; }
+        .role-ai { color: #28a745; border-color: #28a745; }
+
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            background-color: var(--code-bg);
+            color: var(--code-color);
+            padding: 15px;
+            border-radius: 5px;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div id="uploader">
+            <h2>JSONL Log Player 🎬</h2>
+            <p>Select a `.jsonl` file to begin playback.</p>
+            <input type="file" id="fileInput" accept=".jsonl">
+            <p id="status"></p>
+        </div>
+
+        <div id="viewer">
+            <div id="navigation">
+                <button id="prevBtn">&laquo; Previous</button>
+                <div id="stepInfo">
+                    <span id="stepCounter"></span>
+                    <span id="nodeNameDisplay"></span>
+                </div>
+                <button id="nextBtn">Next &raquo;</button>
+            </div>
+            <div id="metadata"></div>
+            <div id="stateDetails"></div>
+            <div id="chartContainer">
+                <h2 class="section-heading">Reports Chart</h2>
+                <canvas id="reportsChart" height="150"></canvas>
+            </div>
+            <h2 class="section-heading">Messages</h2>
+            <div id="logContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let logEntries = [];
+        let currentIndex = 0;
+
+        // DOM Elements
+        const uploaderEl = document.getElementById('uploader');
+        const viewerEl = document.getElementById('viewer');
+        const fileInput = document.getElementById('fileInput');
+        const statusEl = document.getElementById('status');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const stepCounterEl = document.getElementById('stepCounter');
+        const nodeNameDisplayEl = document.getElementById('nodeNameDisplay');
+        const metadataEl = document.getElementById('metadata');
+        const stateDetailsEl = document.getElementById('stateDetails');
+        const chartCanvas = document.getElementById('reportsChart');
+        const logContentEl = document.getElementById('logContent');
+        const chartCtx = chartCanvas.getContext('2d');
+
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => parseAndInitialize(e.target.result);
+            reader.onerror = () => {
+                statusEl.textContent = 'Error reading file.';
+                statusEl.style.color = 'red';
+            };
+            statusEl.textContent = `Reading ${file.name}...`;
+            reader.readAsText(file);
+        }
+
+        function parseAndInitialize(text) {
+            logEntries = text.trim().split('\n').map(line => {
+                try { return JSON.parse(line); } catch (e) {
+                    console.warn("Skipping invalid JSON line:", line);
+                    return null;
+                }
+            }).filter(entry => entry !== null);
+
+            if (logEntries.length === 0) {
+                statusEl.textContent = 'No valid JSON objects found in the file.';
+                statusEl.style.color = 'orange';
+                return;
+            }
+
+            uploaderEl.style.display = 'none';
+            viewerEl.style.display = 'block';
+            currentIndex = 0;
+            renderLogEntry(currentIndex);
+        }
+
+        function renderLogEntry(index) {
+            if (index < 0 || index >= logEntries.length) return;
+            const entry = logEntries[index];
+            
+            // 1. Update Navigation
+            stepCounterEl.textContent = `Step ${index + 1} of ${logEntries.length}`;
+            nodeNameDisplayEl.textContent = entry.state.node_name || 'N/A';
+            prevBtn.disabled = (index === 0);
+            nextBtn.disabled = (index === logEntries.length - 1);
+
+            // 2. Update Metadata
+            const timestamp = new Date(entry.ts).toLocaleString();
+            metadataEl.innerHTML = `
+                <strong>Timestamp:</strong> ${timestamp}<br>
+                <strong>Module:</strong> ${entry.module_name}<br>
+                <strong>Log Step:</strong> ${entry.step}
+            `;
+
+            // 3. Render State Details
+            const state = entry.state;
+            stateDetailsEl.innerHTML = `
+                <h2 class="section-heading">State Details</h2>
+                <div class="state-item">
+                    <strong>LLM Call Count:</strong>
+                    <code>${state.llm_call_count !== undefined ? state.llm_call_count : 'N/A'}</code>
+                </div>
+                <div class="state-item">
+                    <strong>Covered Lines:</strong>
+                    <code>${state.covered_lines && state.covered_lines.length > 0 ? state.covered_lines.join(', ') : 'None'}</code>
+                </div>
+                <div class="state-item">
+                    <strong>Generated Tests (${state.generated_tests ? state.generated_tests.length : 0}):</strong>
+                    ${formatArrayAsCodeList(state.generated_tests)}
+                </div>
+                <div class="state-item">
+                    <strong>Verified Tests (${state.verified_tests ? state.verified_tests.length : 0}):</strong>
+                    ${formatArrayAsCodeList(state.verified_tests)}
+                </div>
+            `;
+            
+            // 4. Draw Reports Chart
+            let tmpReports = (state.reports || []).slice();
+
+            // Add 0 to the beginning of the new copied array.
+            tmpReports.unshift(0);
+
+            // Call the drawChart function with the modified array.
+            drawChart(tmpReports);
+
+            // 5. Render Messages
+            logContentEl.innerHTML = '';
+            (state.messages || []).forEach(msg => {
+                const messageType = msg.type || 'ai';
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message';
+                messageDiv.innerHTML = `
+                    <div class="role role-${messageType}">${messageType.charAt(0).toUpperCase() + messageType.slice(1)}</div>
+                    <pre>${escapeHtml(msg.content)}</pre>
+                `;
+                logContentEl.appendChild(messageDiv);
+            });
+        }
+        
+        function drawChart(data) {
+            const canvas = chartCtx.canvas;
+            canvas.width = canvas.offsetWidth;
+            chartCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (!data || data.length < 2) { // Need at least two points to draw a line
+                chartCtx.font = "16px Arial";
+                chartCtx.fillStyle = "#888";
+                chartCtx.textAlign = "center";
+                chartCtx.fillText("Not enough data to display chart", canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            const leftPadding = 60; 
+            const rightPadding = 20;
+            const topPadding = 20;
+            const bottomPadding = 40; 
+
+            const chartWidth = canvas.width - leftPadding - rightPadding;
+            const chartHeight = canvas.height - topPadding - bottomPadding;
+            
+            const maxVal = Math.max(...data);
+            const minVal = Math.min(...data);
+            const dataRange = maxVal - minVal;
+            
+            const yAxisPadding = dataRange * 0.1 || 1; 
+            const axisMin = minVal - yAxisPadding;
+            const axisMax = maxVal + yAxisPadding;
+            const axisRange = axisMax - axisMin;
+
+            const getX = (i) => leftPadding + (i / (data.length - 1)) * chartWidth;
+            const getY = (value) => (canvas.height - bottomPadding) - ((value - axisMin) / axisRange) * chartHeight;
+
+            // Draw Axes
+            chartCtx.beginPath();
+            chartCtx.strokeStyle = "#ccc";
+            chartCtx.moveTo(leftPadding, topPadding);
+            chartCtx.lineTo(leftPadding, canvas.height - bottomPadding);
+            chartCtx.moveTo(leftPadding, canvas.height - bottomPadding);
+            chartCtx.lineTo(canvas.width - rightPadding, canvas.height - bottomPadding);
+            chartCtx.stroke();
+
+            // Draw Y-axis labels
+            chartCtx.fillStyle = "#666";
+            chartCtx.font = "12px Arial";
+            chartCtx.textAlign = "right";
+            chartCtx.textBaseline = "middle";
+            chartCtx.fillText(maxVal.toFixed(2), leftPadding - 8, getY(maxVal));
+            if (minVal !== maxVal) { 
+                chartCtx.fillText(minVal.toFixed(2), leftPadding - 8, getY(minVal));
+            }
+            
+            // Draw the line
+            chartCtx.beginPath();
+            chartCtx.moveTo(getX(0), getY(data[0]));
+            for (let i = 1; i < data.length; i++) {
+                chartCtx.lineTo(getX(i), getY(data[i]));
+            }
+            chartCtx.strokeStyle = "var(--chart-line-color)";
+            chartCtx.lineWidth = 2;
+            chartCtx.stroke();
+
+            // Draw data points and their values
+            for (let i = 0; i < data.length; i++) {
+                const x = getX(i);
+                const y = getY(data[i]);
+                const value = data[i];
+
+                // Draw the dot
+                chartCtx.fillStyle = "var(--chart-line-color)";
+                chartCtx.beginPath();
+                chartCtx.arc(x, y, 4, 0, 2 * Math.PI);
+                chartCtx.fill();
+
+                // Draw the value text above the dot
+                chartCtx.fillStyle = "#333"; // Dark text for readability
+                chartCtx.font = "12px Arial";
+                chartCtx.textAlign = "center";
+                chartCtx.textBaseline = "bottom";
+                chartCtx.fillText(value.toFixed(2), x, y - 8); // 8px offset above the dot
+            }
+        }
+
+        function formatArrayAsCodeList(arr) {
+            if (!arr || arr.length === 0) {
+                return '<p><em>(empty)</em></p>';
+            }
+            const listItems = arr.map(item => `<li><code>${escapeHtml(item)}</code></li>`).join('');
+            return `<ol>${listItems}</ol>`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.innerText = text;
+            return div.innerHTML;
+        }
+
+        prevBtn.addEventListener('click', () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                renderLogEntry(currentIndex);
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentIndex < logEntries.length - 1) {
+                currentIndex++;
+                renderLogEntry(currentIndex);
+            }
+        });
+        
+        window.addEventListener('resize', () => {
+            if(logEntries.length > 0) {
+                drawChart(logEntries[currentIndex]?.state?.reports || []);
+            }
+        });
+    </script>
+
+</body>
+</html>

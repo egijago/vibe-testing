@@ -1,0 +1,14 @@
+coverage==7.9.1
+graphviz==0.21
+langchain==0.3.25
+langchain-openai==0.3.23
+langgraph==0.4.8
+networkx==3.2.1
+pycfg==0.1
+pytest==8.4.1
+pytest-cov==6.2.1
+pytest-json-report==1.5.0
+pytest-metadata==3.1.1
+astunparse==1.6.3
+pygraphviz==1.11
+python-dotenv==1.1.0
