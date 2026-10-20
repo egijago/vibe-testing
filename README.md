@@ -1,6 +1,6 @@
 # VibeTesting: An Agentic AI Framework for Automated Test Case Generation
 
-VibeTesting is an automated software testing tool that generate regeression tests based on the given python programs. It leverages LLM to iteratively analyzes code, generates tests, and refines them to improve coverage. Our benchmark shows a high line coverage result of 99.48%, 3.75 percentage points over CodaMosa. The architectural paper is presented at ICAICTA 2026. [pdf].(https://egijago.github.io/vibetesting_cameraready.pdf)
+VibeTesting is an automated software testing tool that generate regeression tests based on the given python programs. It leverages LLM to iteratively analyzes code, generates tests, and refines them to improve coverage. Our benchmark shows a high line coverage result of 99.48%, 3.75 percentage points over CodaMosa. The [architectural paper](https://egijago.github.io/vibetesting_cameraready.pdf) is presented at ICAICTA 2026.
 
 ## Method
 
