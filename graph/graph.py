@@ -5,17 +5,19 @@ from node.test_runner import TestRunner
 from node.test_completer import TestCompleter
 from node.test_refiner import TestRefinerMissingLine, TestRefinerCFG
 from node.flow_evaluator import FlowEvaluator
+from sandbox.executor import LocalExecutor
 
 
-def build_graph(llm, max_missing_line_refiner_call, max_cfg_refiner_call):
+def build_graph(llm, max_missing_line_refiner_call, max_cfg_refiner_call, executor=None):
+    executor = executor or LocalExecutor()
     graph_builder = StateGraph(State)
     graph_builder.add_node(
         "test_generator",
-        TestGeneratorExhaustive(llm),
+        TestGeneratorExhaustive(llm, executor),
     )
     graph_builder.add_node(
         "test_runner",
-        TestRunner(),
+        TestRunner(executor),
     )
     graph_builder.add_node(
         "test_refiner_missing_line",
@@ -28,7 +30,7 @@ def build_graph(llm, max_missing_line_refiner_call, max_cfg_refiner_call):
 
     graph_builder.add_node(
         "test_completer", 
-        TestCompleter()
+        TestCompleter(executor)
     )
     
     graph_builder.set_entry_point("test_generator")  

@@ -8,12 +8,13 @@ import re
 from state.code_processor import CodeProcessor
 
 class TestGeneratorCFG:
-    def __init__(self, llm):
+    def __init__(self, llm, executor=None):
         self.llm = llm 
+        self.executor = executor
 
     def __call__(self, state: State):                
         source_code = state[SOURCE_CODE]
-        code_processor = CodeProcessor()
+        code_processor = CodeProcessor(self.executor)
         code_processor.build_from_source(source_code)
         llm_call_count = state[LLM_CALL_COUNT]
 
@@ -117,12 +118,13 @@ This is the concrete data for a specific task that you would provide to the syst
         return list(set(matches)) 
     
 class TestGeneratorExhaustive:
-    def __init__(self, llm):
+    def __init__(self, llm, executor=None):
         self.llm = llm 
+        self.executor = executor
 
     def __call__(self, state: State):                
         source_code = state[SOURCE_CODE]
-        code_processor = CodeProcessor()
+        code_processor = CodeProcessor(self.executor)
         code_processor.build_from_source(source_code)
         llm_call_count = state[LLM_CALL_COUNT]
 

@@ -1,9 +1,7 @@
 from pycfg.pycfg import PyCFG, CFGNode
 from collections import deque
 import re
-import os, tempfile
-import coverage
-import runpy
+from sandbox.executor import LocalExecutor
 
 class CodeLine:
     def __init__(self, line_no, code, pseudo_code):
@@ -12,6 +10,9 @@ class CodeLine:
         self.pseudo_code = pseudo_code
 
 class CodeProcessor:
+    def __init__(self, executor=None):
+        self.executor = executor or LocalExecutor()
+
     def build_from_source(self, source): 
         cfg = PyCFG()
         CFGNode.cache = {}
@@ -173,18 +174,7 @@ class CodeProcessor:
         return self.path_to_code_lines(path)
 
     def get_statement_lines_from_code(self, code: str): 
-        with tempfile.TemporaryDirectory() as td:
-            path = os.path.join(td, "snippet.py")
-            with open(path, "w") as f:
-                f.write(code)
-
-            cov = coverage.Coverage()
-            cov.start()
-            runpy.run_path(path, run_name="__main__")  # run the file
-            cov.stop(); cov.save()
-
-            filename, statements, excluded, missing, output = cov.analysis2(path)
-            return statements
+        return self.executor.statement_lines(code)
     
     def check_missing_statements(self, executed):
         return sorted(set(self.statements) - set(executed))

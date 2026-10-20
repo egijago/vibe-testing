@@ -1,4 +1,5 @@
 from graph.graph import build_graph
+from sandbox.executor import make_executor
 from langchain.chat_models import init_chat_model
 from dotenv import load_dotenv
 from pathlib import Path
@@ -48,7 +49,9 @@ def get_initial_state(source_code, output_dir, module_name, termination_threshol
         "cfg_system_msg_flag": False
     }
 
-def main(source_dir_path: str, output_dir_path: str, model: str, mlr: int, cr: int):
+def main(source_dir_path: str, output_dir_path: str, model: str, mlr: int, cr: int,
+         executor: str = "exec", sandbox_image: str = "vibe-testing-sandbox:latest",
+         sandbox_timeout: float = 30, sandbox_runtime: str = None):
     """
     Main function to process source files in a directory and generate tests.
 
@@ -58,13 +61,18 @@ def main(source_dir_path: str, output_dir_path: str, model: str, mlr: int, cr: i
         model: The language model to use.
         mlr: The value for MLR.
         cr: The value for CR.
+        executor: Where to run generated code: "exec" (in-process) or "docker" (sandboxed container).
+        sandbox_image: Docker image used when executor is "docker".
+        sandbox_timeout: Per-execution timeout in seconds when executor is "docker".
+        sandbox_runtime: Optional Docker runtime (e.g. "runsc" for gVisor) when executor is "docker".
     """
 
     load_dotenv()
 
     # Initialize the language model and the graph
     llm = init_chat_model(f"openai:{model}")
-    graph = build_graph(llm, mlr, cr)
+    code_executor = make_executor(executor, image=sandbox_image, timeout=sandbox_timeout, runtime_name=sandbox_runtime)
+    graph = build_graph(llm, mlr, cr, code_executor)
 
     # Define source and output directories from arguments
     source_dir = Path(source_dir_path)
@@ -126,6 +134,11 @@ if __name__ == "__main__":
     parser.add_argument("--model", default="gpt-4o", help="The language model to use (default: gpt-4o).")
     parser.add_argument("--mlr", type=int, default=2, help="The maximum call of missing line refiner (integer).")
     parser.add_argument("--cr", type=int, default=2, help="The maximum call of cfg refiner (integer).")
+    parser.add_argument("--executor", choices=["exec", "docker"], default="exec",
+                        help="Where to execute source/generated code: 'exec' runs in-process (default), 'docker' runs in a sandboxed container.")
+    parser.add_argument("--sandbox_image", default="vibe-testing-sandbox:latest", help="Docker image for --executor docker.")
+    parser.add_argument("--sandbox_timeout", type=float, default=30, help="Per-execution timeout in seconds for --executor docker.")
+    parser.add_argument("--sandbox_runtime", default=None, help="Optional Docker runtime for --executor docker, e.g. 'runsc' (gVisor).")
 
 
     args = parser.parse_args()
@@ -135,5 +148,9 @@ if __name__ == "__main__":
         output_dir_path=args.output_dir,
         model=args.model,
         mlr=args.mlr,
-        cr=args.cr
+        cr=args.cr,
+        executor=args.executor,
+        sandbox_image=args.sandbox_image,
+        sandbox_timeout=args.sandbox_timeout,
+        sandbox_runtime=args.sandbox_runtime,
     )

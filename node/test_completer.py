@@ -1,17 +1,19 @@
 from state.state import State, VERIFIED_TESTS, SOURCE_CODE, OUTPUT_DIR, MODULE_NAME, NODE_NAME
 from typing import List 
 from pathlib import Path
-from math import inf
+from sandbox.executor import LocalExecutor
 
 
 class TestCompleter:
+    def __init__(self, executor=None):
+        self.executor = executor or LocalExecutor()
+
     def __call__(self, state: State):
         verified_tests = state[VERIFIED_TESTS]
         function_code   = state[SOURCE_CODE]
         out_dir     = Path(state[OUTPUT_DIR])
         module_name = state[MODULE_NAME]
 
-        pytest_code = self.make_pytest_module(function_code, verified_tests)
         out_dir.mkdir(parents=True, exist_ok=True)
         file_path = out_dir / f"test_{module_name}.py"
 
@@ -21,29 +23,24 @@ class TestCompleter:
         return {NODE_NAME: self.__class__.__name__}
     
     def make_pytest_module(self, function_code: str, generated_calls: List[str], import_str: str = "") -> str:
-        namespace = {}
-        try:
-            exec(function_code, namespace)
-        except Exception as e:
-            raise RuntimeError(f"Failed to execute function_code: {type(e).__name__}: {e}") from e
+        results = self.executor.evaluate_calls(function_code, generated_calls)
 
         tests: List[str] = []
         needs_pytest = False
         inf_found = False
 
-        for i, call in enumerate(generated_calls):
+        for i, (call, result) in enumerate(zip(generated_calls, results)):
             call_str = call.strip()
-            try:
-                value = eval(call_str, namespace)
-                if abs(value) == inf:
+            if result["ok"]:
+                if result["inf"]:
                     inf_found = True
                 tests.append(
                     f"def test_{i}():\n"
-                    f"    assert {call_str} == {repr(value)}\n"
+                    f"    assert {call_str} == {result['repr']}\n"
                 )
-            except Exception as e:
+            else:
                 needs_pytest = True
-                exc_name = type(e).__name__
+                exc_name = result["exc_name"]
                 tests.append(
                     f"def test_{i}():\n"
                     f"    with pytest.raises({exc_name}):\n"
